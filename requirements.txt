@@ -1,0 +1,2 @@
+gradio==5.20.1
+pyshorteners==1.0.1
