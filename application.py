@@ -54,9 +54,9 @@ def tinyurl_shorten(url):
         logger.error(f"TinyURL: {repr(e)}")
         return f"TinyURL: {get_random_error_message()}"
 
-def cuttly_shorten(url):
+def cuttly_shorten(url, api_key):
     try:
-        s = pyshorteners.Shortener(api_key="Enter your own API key")
+        s = pyshorteners.Shortener(api_key=api_key)
         shortened_url = s.cuttly.short(url)
         return shortened_url
     except (
@@ -75,13 +75,13 @@ services = {
 }
 
 def shorten_url(url, selected_service, api_key):
-    if selected_service == "Bitly":
+    if selected_service == "Bitly" or selected_service == "Cuttly":
         return services[selected_service](url, api_key)
     else:
         return services[selected_service](url)
 
 def toggle_api_key_visibility(selected_service):
-    return gr.update(visible=(selected_service == "Bitly"))
+    return gr.update(visible=(selected_service == "Bitly" or selected_service == "Cuttly"))
 
 with gr.Blocks(title="Link Shortener 🔗") as application:
     gr.Markdown("# Link Shortener 🔗")
@@ -134,7 +134,6 @@ with gr.Blocks(title="Link Shortener 🔗") as application:
         </style>
         """
     )
-
 
 if __name__ == "__main__":
     application.launch(server_port=8000)
