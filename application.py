@@ -83,7 +83,7 @@ def shorten_url(url, selected_service, api_key):
 def toggle_api_key_visibility(selected_service):
     return gr.update(visible=(selected_service == "Bitly"))
 
-with gr.Blocks(title="Link Shortener 🔗") as interface:
+with gr.Blocks(title="Link Shortener 🔗") as application:
     gr.Markdown("# Link Shortener 🔗")
     
     with gr.Row():
@@ -135,4 +135,6 @@ with gr.Blocks(title="Link Shortener 🔗") as interface:
         """
     )
 
-interface.launch()
+
+if __name__ == "__main__":
+    application.launch(server_port=8000)
