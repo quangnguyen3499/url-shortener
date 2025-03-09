@@ -7,8 +7,8 @@ from pyshorteners.exceptions import (
     ExpandingErrorException,
     ShorteningErrorException,
 )
+import requests
 import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -17,47 +17,28 @@ def get_random_error_message():
         "Oops! That link seems to have wandered off the beaten path. Please provide a valid URL to continue.",
         "Hmm, this doesn't look like a proper gateway. Let's ensure you enter a valid link to proceed!",
         "Ahoy! We can't set sail without a proper link. Please drop anchor and provide a valid URL!",
-        "Beware of digital detours! Only a valid link can guide you through this checkpoint.",
-        "Your journey requires a valid passkey. Please enter a valid URL to unlock the gate!",
-        "It looks like we've hit a digital dead-end. Please provide a valid link to find the way forward.",
-        "Unlock the power of the web with a valid link! Without it, we're lost in the digital wilderness.",
-        "We've encountered a binary puzzle! To proceed, you must supply a valid URL.",
-        "Climb the virtual tower with a valid link to reach the enchanted realm of the web.",
-        "Only by providing a valid link shall you gain passage through this digital gateway.",
-        "Oh no! It seems you've entered an invalid link. Let's try again with a valid URL.",
-        "Uh-oh! We're missing a proper link. Please provide a valid URL and try again.",
-        "Oops! That link doesn't seem right. Let's try again with a valid URL.",
-        "Oh dear! The link you provided isn't valid. Please enter a legitimate URL.",
-        "Uh-oh! We've hit a roadblock with that link. Please provide a valid URL to proceed.",
-        "Oh my! That link seems invalid. Please enter a proper URL and try again.",
-        "Yikes! That doesn't look like a valid link. Please provide a legitimate URL.",
-        "Oopsie-daisy! The link you entered isn't valid. Please provide a genuine URL.",
-        "Oh dear! The link you provided isn't quite right. Please enter a valid URL.",
-        "Oh no, we've encountered an issue with the link you entered. Please double-check and provide a valid URL.",
-        "It seems the link you entered isn't valid. Please provide a genuine URL and try again.",
     ]
     return random.choice(error_messages)
 
-
-random_error = get_random_error_message()
-
-
-def bitly_shorten(url):
+def bitly_shorten(url, api_key):
     if not url.startswith("https://") and not url.startswith("http://"):
         url = "https://" + url
     try:
-        s = pyshorteners.Shortener(api_key="Enter your own API key")
+        s = pyshorteners.Shortener(api_key=api_key)
         shortened_url = s.bitly.short(url)
         return shortened_url
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 403:
+            logger.error("bitly: API key is not correct")
+            return "Bitly: API key is not correct"
     except (
         BadAPIResponseException,
         BadURLException,
         ExpandingErrorException,
         ShorteningErrorException,
     ) as e:
-        logger.error(repr(e))
-        return get_random_error_message()
-
+        logger.error(f"bitly: {repr(e)}")
+        return f"Bitly: {get_random_error_message()}"
 
 def tinyurl_shorten(url):
     try:
@@ -70,9 +51,8 @@ def tinyurl_shorten(url):
         ExpandingErrorException,
         ShorteningErrorException,
     ) as e:
-        logger.error(repr(e))
-        return get_random_error_message()
-
+        logger.error(f"TinyURL: {repr(e)}")
+        return f"TinyURL: {get_random_error_message()}"
 
 def cuttly_shorten(url):
     try:
@@ -85,42 +65,74 @@ def cuttly_shorten(url):
         ExpandingErrorException,
         ShorteningErrorException,
     ) as e:
-        logger.error(repr(e))
-        return get_random_error_message()
+        logger.error(f"Cuttly: {repr(e)}")
+        return f"Cuttly: {get_random_error_message()}"
 
-
-"""Services menu"""
 services = {
     "Bitly": bitly_shorten,
     "TinyURL": tinyurl_shorten,
     "Cuttly": cuttly_shorten,
 }
 
+def shorten_url(url, selected_service, api_key):
+    if selected_service == "Bitly":
+        return services[selected_service](url, api_key)
+    else:
+        return services[selected_service](url)
 
-def shorten_url(url, selected_service):
-    shortened_url = services[selected_service](url)
-    return shortened_url
+def toggle_api_key_visibility(selected_service):
+    return gr.update(visible=(selected_service == "Bitly"))
 
+with gr.Blocks(title="Link Shortener 🔗") as interface:
+    gr.Markdown("# Link Shortener 🔗")
+    
+    with gr.Row():
+        url_input = gr.Textbox(label="Enter the URL to shorten:", placeholder="https://github.com/")
+        service_dropdown = gr.Dropdown(
+            choices=list(services.keys()),
+            label="Select the URL shortening service:",
+            value="Bitly",
+        )
+    api_key_input = gr.Textbox(label="Enter API Key:", placeholder="API key", visible=True)
 
-"""Gradio UI"""
-url_input = gr.Textbox(
-    label="Enter the URL to shorten:", placeholder="https://github.com/quangnguyen3499"
-)
+    shorten_button = gr.Button("Shorten URL")
+    
+    with gr.Row():
+        gr.Markdown("### Shortened URL:")
+        output_text = gr.Textbox(
+            label="",
+            show_copy_button=True,
+            elem_id="shortened-url",  # Assign an ID for custom styling
+        )
 
-service_dropdown = gr.Dropdown(
-    choices=list(services.keys()),
-    label="Select the URL shortening service:",
-    value="Please select any",
-)
+    # Toggle visibility of API Key input based on selected service
+    service_dropdown.change(
+        fn=toggle_api_key_visibility,
+        inputs=service_dropdown,
+        outputs=api_key_input,
+    )
 
-output_text = gr.Textbox(label="Shortened URL:", show_copy_button=True, container=True)
+    # Handle the shortening process
+    shorten_button.click(
+        fn=shorten_url,
+        inputs=[url_input, service_dropdown, api_key_input],
+        outputs=output_text,
+    )
 
-interface = gr.Interface(
-    fn=shorten_url,
-    inputs=[url_input, service_dropdown],
-    outputs=[output_text],
-    title="Link Shortener 🔗",
-    theme=gr.themes.Soft(),
-    allow_flagging="never",
-)
+    # Inject custom CSS for styling
+    gr.HTML(
+        """
+        <style>
+        #shortened-url textarea {
+            font-size: 1.25em;
+            background-color: #f0f8ff;
+            color: #000000; /* Set text color to black */
+            border: 2px solid #007acc;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        </style>
+        """
+    )
+
 interface.launch()
